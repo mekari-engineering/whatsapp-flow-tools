@@ -66,10 +66,10 @@ Create a `.env` file based on `.env.example` and configure the following variabl
 1. **Generate RSA Key Pair** (if you don't have one):
 ```bash
 # Generate private key
-openssl genrsa -aes128 -out private_key.pem 2048
+openssl genrsa -des3 -out private.pem 2048
 
 # Generate public key  
-openssl rsa -in private_key.pem -pubout -out public_key.pem
+openssl rsa -in private.pem -outform PEM -pubout -out public.pem
 ```
 
 2. **Configure WhatsApp Flow**:

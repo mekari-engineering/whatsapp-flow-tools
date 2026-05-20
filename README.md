@@ -104,7 +104,8 @@ By default, the server runs on `0.0.0.0:3000`.
 ### HTTP Endpoints
 
 - `GET /health` - Health check endpoint
-- `POST /webhook` - Main WhatsApp Flow payload endpoint
+- `POST /webhook` - Main WhatsApp Flow payload endpoint (returns full debug JSON)
+- `POST /webhook/encrypted` - Production endpoint (returns only encrypted response string)
 
 You can override host and port with environment variables:
 
@@ -116,6 +117,18 @@ Example request:
 
 ```bash
 curl -X POST http://127.0.0.1:3000/webhook \
+   -H "Content-Type: application/json" \
+   -d '{
+      "encrypted_aes_key": "...",
+      "encrypted_flow_data": "...",
+      "initial_vector": "..."
+   }'
+```
+
+Production-mode example (encrypted string response only):
+
+```bash
+curl -X POST http://127.0.0.1:3000/webhook/encrypted \
    -H "Content-Type: application/json" \
    -d '{
       "encrypted_aes_key": "...",

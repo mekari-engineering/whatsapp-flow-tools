@@ -9,6 +9,11 @@ function sendJson(res, statusCode, payload) {
   res.end(JSON.stringify(payload));
 }
 
+function sendText(res, statusCode, payload) {
+  res.writeHead(statusCode, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.end(payload);
+}
+
 function collectBody(req) {
   return new Promise((resolve, reject) => {
     let raw = '';
@@ -63,6 +68,28 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === 'POST' && req.url === '/webhook/encrypted') {
+    try {
+      const body = await collectBody(req);
+      const result = await processFlowRequest(body);
+
+      if (result?.response && typeof result.response === 'string') {
+        sendText(res, 200, result.response);
+        return;
+      }
+
+      const statusCode = Number(result?.code) || 500;
+      sendJson(res, statusCode, result);
+    } catch (error) {
+      console.error('Request handling error:', error);
+      sendJson(res, 400, {
+        code: 400,
+        message: error.message || 'Bad Request'
+      });
+    }
+    return;
+  }
+
   sendJson(res, 404, {
     code: 404,
     message: 'Not Found'
@@ -72,4 +99,5 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, HOST, () => {
   console.log(`Server listening on http://${HOST}:${PORT}`);
   console.log('POST /webhook to process WhatsApp Flow payloads');
+  console.log('POST /webhook/encrypted to return only encrypted response text');
 });

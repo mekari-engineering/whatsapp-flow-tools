@@ -1,5 +1,8 @@
 {
   "routing_model": {
+    "WELCOME": [
+      "ADMISSION"
+    ],
     "ADMISSION": [
       "REGISTRATION",
       "PASIEN"
@@ -17,6 +20,35 @@
   },
   "data_api_version": "3.0",
   "screens": [
+     {
+      "id": "WELCOME",
+      "title": "Welcome",
+      "data": {
+        "welcome_message": {
+          "type": "string",
+          "__example__": "Welcome to the Hospital Booking System!"
+        }
+      },
+      "layout": {
+        "children": [
+          {
+            "type": "TextSubheading",
+            "text": "Welcome to the Hospital Booking System! Please proceed to Admission."
+          },
+          {
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "trigger": "INIT"
+                  }
+                },
+                "type": "Footer"
+              }
+        ],
+        "type": "SingleColumnLayout"
+      }
+    },
     {
       "id": "ADMISSION",
       "title": "Pendaftaran",
@@ -645,6 +677,10 @@
       "id": "COMPLETE",
       "title": "Booking Berhasil",
       "data": {
+        "user_id": {
+          "type": "string",
+          "__example__": "demo-user-001"
+        },
         "booking_qr_code": {
           "type": "string",
           "__example__": ""
@@ -656,6 +692,18 @@
         "nama": {
           "type": "string",
           "__example__": "John Doe"
+        },
+        "dokter": {
+          "type": "string",
+          "__example__": "dr. Sarah Wijaya, M.Sc, Sp.A"
+        },
+        "ruang": {
+          "type": "string",
+          "__example__": "Ruang Demo 1"
+        },
+        "antrian": {
+          "type": "string",
+          "__example__": "A-001"
         }
       },
       "terminal": true,
@@ -681,7 +729,7 @@
                 "markdown": true,
                 "text": [
                   "`'Pasien atas nama: ' ${data.nama}`",
-                  " terdaftar di dr. Budi Santoso Sp.PD tgl 19-04-2025 16:00-21:00 ,Ruang 38, No urut 6, No booking **ABC123**, Registrasi di Admisi Gedung B, dengan syarat wajib membawa identitas diri seperti KTP/KIA/KK dan Kartu Asuransi bagi yang menggunakan.",
+                  "`'Terdaftar di ' ${data.dokter} ', Ruang ' ${data.ruang} ', No urut ' ${data.antrian} ', No booking **' ${data.booking_code} '**. Registrasi di Admisi Gedung B, dengan syarat wajib membawa identitas diri seperti KTP/KIA/KK dan Kartu Asuransi bagi yang menggunakan.'`",
                   "Sistem antrian poliklinik , jika pasien terlambat datang akan dilompati minimal 3 (tiga) pasien.",
                   "Terima Kasih sudah mempercayakan perawatan kesehatan Rawat Jalan di Rumah Sakit \"ABC Hospital\". "
                 ]

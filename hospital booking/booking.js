@@ -10,7 +10,8 @@
  * Flow: ADMISSION → REGISTRATION/PASIEN → KONFIRMASI → COMPLETE
  */
 
-const input = $json.body;
+// Supports n8n code-node ($json) and server execution.
+const n8nInput = globalThis.$json?.body ?? null;
 const crypto = require('crypto'); 
 const axios = require('axios');
 
@@ -60,6 +61,25 @@ const API_ENDPOINTS = {
   SUBMIT_BOOKING: `${process.env.API_BASE_URL}${process.env.API_BOOKING_ENDPOINT}`
 };
 
+/** Global demo switch for local/demo mocking behavior */
+const DEMO_MODE = String(process.env.DEMO_MODE || 'false').toLowerCase() === 'true';
+
+/** Optional demo-only sign-in mock configuration */
+const SIGNIN_MOCK_CONFIG = {
+    nameOrPhone: process.env.SIGNIN_MOCK_NAME_OR_PHONE || '',
+    birthDate: process.env.SIGNIN_MOCK_BIRTH_DATE || '',
+    userId: process.env.SIGNIN_MOCK_USER_ID || 'demo-user-001'
+};
+
+/** Optional demo-only booking submit mock configuration */
+const BOOKING_MOCK_CONFIG = {
+    userIdMatch: process.env.BOOKING_MOCK_USER_ID_MATCH || '',
+    bookingCode: process.env.BOOKING_MOCK_CODE || 'DEMO-BOOK-001',
+    bookingQrCode: process.env.BOOKING_MOCK_QR || 'https://example.com/qr/demo-book-001',
+    antrian: process.env.BOOKING_MOCK_QUEUE || 'A-001',
+    ruang: process.env.BOOKING_MOCK_ROOM || 'Ruang Demo 1'
+};
+
 /** Indonesian month names for date formatting */
 const INDONESIAN_MONTHS = [
   "Januari", "Februari", "Maret", "April", "Mei", "Juni",
@@ -102,8 +122,23 @@ class FlowEndpointException extends Error {
 function decryptRequest(body, privatePem, passphrase) {
   const { encrypted_aes_key, encrypted_flow_data, initial_vector } = body;
 
+    if (!encrypted_aes_key || !encrypted_flow_data || !initial_vector) {
+        throw new FlowEndpointException(
+            400,
+            "Invalid request payload. Required fields: encrypted_aes_key, encrypted_flow_data, initial_vector."
+        );
+    }
+
   // Step 1: Decrypt the AES key using RSA private key
-  const privateKey = crypto.createPrivateKey({ key: privatePem, passphrase });
+    let privateKey;
+    try {
+        privateKey = crypto.createPrivateKey({ key: privatePem, passphrase });
+    } catch (error) {
+        throw new FlowEndpointException(
+            421,
+            "Failed to load private key. Please verify RSA_PRIVATE_KEY and RSA_PASSPHRASE."
+        );
+    }
   let decryptedAesKey = null;
 
   try {
@@ -175,6 +210,35 @@ function encryptResponse(response, aesKeyBuffer, initialVectorBuffer) {
     cipher.final(),
     cipher.getAuthTag(),
   ]).toString("base64");
+}
+
+/**
+ * Builds safe diagnostics for private/public key pair readiness.
+ * Never returns key material or passphrase.
+ * @returns {{keyLoadable: boolean, publicKeyFingerprintSha256: string|null, error: string|null}}
+ */
+function getCryptoDiagnostics() {
+    try {
+        const privateKey = crypto.createPrivateKey({ key: PRIVATE_KEY, passphrase: PASSPHRASE });
+        const publicKey = crypto.createPublicKey(privateKey);
+        const publicKeyDer = publicKey.export({ type: 'spki', format: 'der' });
+        const fingerprint = crypto
+            .createHash('sha256')
+            .update(publicKeyDer)
+            .digest('hex');
+
+        return {
+            keyLoadable: true,
+            publicKeyFingerprintSha256: fingerprint,
+            error: null
+        };
+    } catch (error) {
+        return {
+            keyLoadable: false,
+            publicKeyFingerprintSha256: null,
+            error: error?.message || 'Unknown key error'
+        };
+    }
 }
 
 // =============================================================================
@@ -583,6 +647,21 @@ async function handleRegistration(registrationData) {
  * @returns {Promise<Object>} Sign-in result
  */
 async function handleSignIn(signInData) {
+    if (
+        DEMO_MODE &&
+        String(signInData.pasien_nama_or_telp || '').trim() === SIGNIN_MOCK_CONFIG.nameOrPhone &&
+        String(signInData.pasien_tanggal_lahir || '').trim() === SIGNIN_MOCK_CONFIG.birthDate
+    ) {
+        return {
+            success: true,
+            status: 200,
+            data: {
+                user_id: SIGNIN_MOCK_CONFIG.userId,
+                mocked: true
+            }
+        };
+    }
+
     const payload = {
         trigger: 'sign_in',
         pasien_nama_or_telp: signInData.pasien_nama_or_telp,
@@ -598,6 +677,29 @@ async function handleSignIn(signInData) {
  * @returns {Promise<Object>} Booking result
  */
 async function handleBookingSubmission(bookingData) {
+    if (DEMO_MODE) {
+        const incomingUserId = String(bookingData.user_id || '').trim();
+        const requiredUserId = String(BOOKING_MOCK_CONFIG.userIdMatch || '').trim();
+        const userIdMatched = !requiredUserId || incomingUserId === requiredUserId;
+
+        if (userIdMatched) {
+            return {
+                success: true,
+                status: 200,
+                data: {
+                    user_id: bookingData.user_id || SIGNIN_MOCK_CONFIG.userId,
+                    booking_qr_code: BOOKING_MOCK_CONFIG.bookingQrCode,
+                    booking_code: BOOKING_MOCK_CONFIG.bookingCode,
+                    nama: bookingData.nama_lengkap || bookingData.nama || 'Demo Patient',
+                    dokter: bookingData.dokter || 'Demo Doctor',
+                    ruang: BOOKING_MOCK_CONFIG.ruang,
+                    antrian: BOOKING_MOCK_CONFIG.antrian,
+                    mocked: true
+                }
+            };
+        }
+    }
+
     const payload = {
         trigger: 'submit_booking',
         ...bookingData
@@ -635,6 +737,11 @@ async function getNextScreen(decryptedBody) {
 
   // Handle initial flow start → show ADMISSION screen
   if (action === "INIT") {
+    return getInitialAdmissionScreen(data);
+  }
+
+  // Some clients send INIT inside data.trigger during data_exchange
+  if (action === "data_exchange" && String(data?.trigger || "").toUpperCase() === "INIT") {
     return getInitialAdmissionScreen(data);
   }
   
@@ -901,8 +1008,15 @@ async function handleKonfirmasiScreen(data) {
  * 2. Processes the request and determines the next screen
  * 3. Encrypts and returns the response
  */
-async function main() {
+async function processFlowRequest(input) {
     let decryptedRequest;
+
+    if (!input || typeof input !== 'object') {
+        return {
+            code: 400,
+            message: "Missing request body."
+        };
+    }
 
     // Step 1: Decrypt the incoming request
     try {
@@ -962,5 +1076,20 @@ async function main() {
     }
 }
 
-// Execute the main function
-return await main();
+async function main() {
+    return processFlowRequest(n8nInput);
+}
+
+// Execute only when running as a standalone Node script.
+if (require.main === module) {
+    main()
+        .then((result) => {
+            console.log(JSON.stringify(result, null, 2));
+        })
+        .catch((error) => {
+            console.error("❌ Fatal error:", error);
+            process.exitCode = 1;
+        });
+}
+
+module.exports = { main, processFlowRequest, getCryptoDiagnostics };

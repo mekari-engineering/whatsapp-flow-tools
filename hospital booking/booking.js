@@ -61,6 +61,14 @@ const API_ENDPOINTS = {
   SUBMIT_BOOKING: `${process.env.API_BASE_URL}${process.env.API_BOOKING_ENDPOINT}`
 };
 
+/** Optional demo-only sign-in mock configuration */
+const SIGNIN_MOCK_CONFIG = {
+    enabled: String(process.env.SIGNIN_MOCK_ENABLED || 'false').toLowerCase() === 'true',
+    nameOrPhone: process.env.SIGNIN_MOCK_NAME_OR_PHONE || '',
+    birthDate: process.env.SIGNIN_MOCK_BIRTH_DATE || '',
+    userId: process.env.SIGNIN_MOCK_USER_ID || 'demo-user-001'
+};
+
 /** Indonesian month names for date formatting */
 const INDONESIAN_MONTHS = [
   "Januari", "Februari", "Maret", "April", "Mei", "Juni",
@@ -628,6 +636,21 @@ async function handleRegistration(registrationData) {
  * @returns {Promise<Object>} Sign-in result
  */
 async function handleSignIn(signInData) {
+    if (
+        SIGNIN_MOCK_CONFIG.enabled &&
+        String(signInData.pasien_nama_or_telp || '').trim() === SIGNIN_MOCK_CONFIG.nameOrPhone &&
+        String(signInData.pasien_tanggal_lahir || '').trim() === SIGNIN_MOCK_CONFIG.birthDate
+    ) {
+        return {
+            success: true,
+            status: 200,
+            data: {
+                user_id: SIGNIN_MOCK_CONFIG.userId,
+                mocked: true
+            }
+        };
+    }
+
     const payload = {
         trigger: 'sign_in',
         pasien_nama_or_telp: signInData.pasien_nama_or_telp,

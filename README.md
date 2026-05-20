@@ -60,6 +60,10 @@ Create a `.env` file based on `.env.example` and configure the following variabl
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `NODE_ENV` | Environment mode | `development` |
+| `SIGNIN_MOCK_ENABLED` | Enable demo sign-in mock bypass | `false` |
+| `SIGNIN_MOCK_NAME_OR_PHONE` | Exact value for `pasien_nama_or_telp` to trigger mock | `demo_user` |
+| `SIGNIN_MOCK_BIRTH_DATE` | Exact value for `pasien_tanggal_lahir` to trigger mock | `1990-01-01` |
+| `SIGNIN_MOCK_USER_ID` | `user_id` returned when mock is triggered | `demo-user-001` |
 
 ### RSA Key Setup
 
@@ -137,6 +141,26 @@ curl -X POST http://127.0.0.1:3000/webhook/encrypted \
       "initial_vector": "..."
    }'
 ```
+
+### Demo Sign-In Mock (Skip External Sign-In API)
+
+For demo/testing only, you can bypass the sign-in API when specific credentials are submitted in the `PASIEN` screen.
+
+Set these in `.env`:
+
+```bash
+SIGNIN_MOCK_ENABLED=true
+SIGNIN_MOCK_NAME_OR_PHONE=demo_user
+SIGNIN_MOCK_BIRTH_DATE=1990-01-01
+SIGNIN_MOCK_USER_ID=demo-user-001
+```
+
+Behavior:
+
+- If both `pasien_nama_or_telp` and `pasien_tanggal_lahir` exactly match the configured values, the flow treats sign-in as successful and returns `user_id` from `SIGNIN_MOCK_USER_ID`.
+- If they do not match, normal API call to `API_SIGNIN_ENDPOINT` is used.
+
+Keep `SIGNIN_MOCK_ENABLED=false` outside demo environments.
 
 ### Flow Structure
 

@@ -10,7 +10,8 @@
  * Flow: ADMISSION → REGISTRATION/PASIEN → KONFIRMASI → COMPLETE
  */
 
-const input = $json.body;
+// Supports n8n code-node ($json) and server execution.
+const n8nInput = globalThis.$json?.body ?? null;
 const crypto = require('crypto'); 
 const axios = require('axios');
 
@@ -102,8 +103,23 @@ class FlowEndpointException extends Error {
 function decryptRequest(body, privatePem, passphrase) {
   const { encrypted_aes_key, encrypted_flow_data, initial_vector } = body;
 
+    if (!encrypted_aes_key || !encrypted_flow_data || !initial_vector) {
+        throw new FlowEndpointException(
+            400,
+            "Invalid request payload. Required fields: encrypted_aes_key, encrypted_flow_data, initial_vector."
+        );
+    }
+
   // Step 1: Decrypt the AES key using RSA private key
-  const privateKey = crypto.createPrivateKey({ key: privatePem, passphrase });
+    let privateKey;
+    try {
+        privateKey = crypto.createPrivateKey({ key: privatePem, passphrase });
+    } catch (error) {
+        throw new FlowEndpointException(
+            421,
+            "Failed to load private key. Please verify RSA_PRIVATE_KEY and RSA_PASSPHRASE."
+        );
+    }
   let decryptedAesKey = null;
 
   try {
@@ -901,8 +917,15 @@ async function handleKonfirmasiScreen(data) {
  * 2. Processes the request and determines the next screen
  * 3. Encrypts and returns the response
  */
-async function main() {
+async function processFlowRequest(input) {
     let decryptedRequest;
+
+    if (!input || typeof input !== 'object') {
+        return {
+            code: 400,
+            message: "Missing request body."
+        };
+    }
 
     // Step 1: Decrypt the incoming request
     try {
@@ -962,5 +985,20 @@ async function main() {
     }
 }
 
-// Execute the main function
-return await main();
+async function main() {
+    return processFlowRequest(n8nInput);
+}
+
+// Execute only when running as a standalone Node script.
+if (require.main === module) {
+    main()
+        .then((result) => {
+            console.log(JSON.stringify(result, null, 2));
+        })
+        .catch((error) => {
+            console.error("❌ Fatal error:", error);
+            process.exitCode = 1;
+        });
+}
+
+module.exports = { main, processFlowRequest };

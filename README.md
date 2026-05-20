@@ -99,6 +99,31 @@ npm run dev
 npm start
 ```
 
+By default, the server runs on `0.0.0.0:3000`.
+
+### HTTP Endpoints
+
+- `GET /health` - Health check endpoint
+- `POST /webhook` - Main WhatsApp Flow payload endpoint
+
+You can override host and port with environment variables:
+
+```bash
+HOST=0.0.0.0 PORT=3000 npm start
+```
+
+Example request:
+
+```bash
+curl -X POST http://127.0.0.1:3000/webhook \
+   -H "Content-Type: application/json" \
+   -d '{
+      "encrypted_aes_key": "...",
+      "encrypted_flow_data": "...",
+      "initial_vector": "..."
+   }'
+```
+
 ### Flow Structure
 
 The booking flow follows this sequence:

@@ -193,6 +193,35 @@ function encryptResponse(response, aesKeyBuffer, initialVectorBuffer) {
   ]).toString("base64");
 }
 
+/**
+ * Builds safe diagnostics for private/public key pair readiness.
+ * Never returns key material or passphrase.
+ * @returns {{keyLoadable: boolean, publicKeyFingerprintSha256: string|null, error: string|null}}
+ */
+function getCryptoDiagnostics() {
+    try {
+        const privateKey = crypto.createPrivateKey({ key: PRIVATE_KEY, passphrase: PASSPHRASE });
+        const publicKey = crypto.createPublicKey(privateKey);
+        const publicKeyDer = publicKey.export({ type: 'spki', format: 'der' });
+        const fingerprint = crypto
+            .createHash('sha256')
+            .update(publicKeyDer)
+            .digest('hex');
+
+        return {
+            keyLoadable: true,
+            publicKeyFingerprintSha256: fingerprint,
+            error: null
+        };
+    } catch (error) {
+        return {
+            keyLoadable: false,
+            publicKeyFingerprintSha256: null,
+            error: error?.message || 'Unknown key error'
+        };
+    }
+}
+
 // =============================================================================
 // DATA FILTERING AND UTILITY FUNCTIONS
 // =============================================================================
@@ -1001,4 +1030,4 @@ if (require.main === module) {
         });
 }
 
-module.exports = { main, processFlowRequest };
+module.exports = { main, processFlowRequest, getCryptoDiagnostics };

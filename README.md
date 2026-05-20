@@ -104,6 +104,7 @@ By default, the server runs on `0.0.0.0:3000`.
 ### HTTP Endpoints
 
 - `GET /health` - Health check endpoint
+- `GET /health/crypto` - Private key readiness check with public key SHA-256 fingerprint
 - `POST /webhook` - Main WhatsApp Flow payload endpoint (returns full debug JSON)
 - `POST /webhook/encrypted` - Production endpoint (returns only encrypted response string)
 

@@ -1,5 +1,5 @@
 const http = require('http');
-const { processFlowRequest } = require('./hospital booking/booking');
+const { processFlowRequest, getCryptoDiagnostics } = require('./hospital booking/booking');
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -45,15 +45,61 @@ function collectBody(req) {
   });
 }
 
+function createRequestId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function stringifyForLog(value, maxLength = 4000) {
+  if (value == null) return '';
+
+  let content;
+  try {
+    content = typeof value === 'string' ? value : JSON.stringify(value);
+  } catch (error) {
+    content = '[unserializable body]';
+  }
+
+  if (content.length <= maxLength) return content;
+  return `${content.slice(0, maxLength)}... [truncated]`;
+}
+
+function attachRequestLogger(req, res) {
+  const requestId = createRequestId();
+  const startedAt = process.hrtime.bigint();
+  req.requestId = requestId;
+
+  res.on('finish', () => {
+    const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+    const ip = req.socket?.remoteAddress || 'unknown';
+    const bodyLog = req.bodyForLog ? ` body=${req.bodyForLog}` : '';
+    console.log(
+      `[${requestId}] ${req.method} ${req.url} -> ${res.statusCode} ${elapsedMs.toFixed(2)}ms ip=${ip}${bodyLog}`
+    );
+  });
+}
+
 const server = http.createServer(async (req, res) => {
+  attachRequestLogger(req, res);
+
   if (req.method === 'GET' && req.url === '/health') {
     sendJson(res, 200, { status: 'ok' });
+    return;
+  }
+
+  if (req.method === 'GET' && req.url === '/health/crypto') {
+    const diagnostics = getCryptoDiagnostics();
+    const statusCode = diagnostics.keyLoadable ? 200 : 500;
+    sendJson(res, statusCode, {
+      status: diagnostics.keyLoadable ? 'ok' : 'error',
+      diagnostics
+    });
     return;
   }
 
   if (req.method === 'POST' && req.url === '/webhook') {
     try {
       const body = await collectBody(req);
+      req.bodyForLog = stringifyForLog(body);
       const result = await processFlowRequest(body);
 
       const statusCode = Number(result?.code) || 200;
@@ -71,6 +117,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && req.url === '/webhook/encrypted') {
     try {
       const body = await collectBody(req);
+      req.bodyForLog = stringifyForLog(body);
       const result = await processFlowRequest(body);
 
       if (result?.response && typeof result.response === 'string') {
@@ -100,4 +147,5 @@ server.listen(PORT, HOST, () => {
   console.log(`Server listening on http://${HOST}:${PORT}`);
   console.log('POST /webhook to process WhatsApp Flow payloads');
   console.log('POST /webhook/encrypted to return only encrypted response text');
+  console.log('GET /health/crypto to validate private key and fingerprint');
 });

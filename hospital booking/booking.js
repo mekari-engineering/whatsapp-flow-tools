@@ -739,6 +739,11 @@ async function getNextScreen(decryptedBody) {
   if (action === "INIT") {
     return getInitialAdmissionScreen(data);
   }
+
+  // Some clients send INIT inside data.trigger during data_exchange
+  if (action === "data_exchange" && String(data?.trigger || "").toUpperCase() === "INIT") {
+    return getInitialAdmissionScreen(data);
+  }
   
   // Handle data exchange actions
   if (action === "data_exchange") {

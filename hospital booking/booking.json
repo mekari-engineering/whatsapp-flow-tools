@@ -1,5 +1,8 @@
 {
   "routing_model": {
+    "WELCOME": [
+      "ADMISSION"
+    ],
     "ADMISSION": [
       "REGISTRATION",
       "PASIEN"
@@ -17,6 +20,35 @@
   },
   "data_api_version": "3.0",
   "screens": [
+     {
+      "id": "WELCOME",
+      "title": "Welcome",
+      "data": {
+        "welcome_message": {
+          "type": "string",
+          "__example__": "Welcome to the Hospital Booking System!"
+        }
+      },
+      "layout": {
+        "children": [
+          {
+            "type": "TextSubheading",
+            "text": "Welcome to the Hospital Booking System! Please proceed to Admission."
+          },
+          {
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "trigger": "INIT"
+                  }
+                },
+                "type": "Footer"
+              }
+        ],
+        "type": "SingleColumnLayout"
+      }
+    },
     {
       "id": "ADMISSION",
       "title": "Pendaftaran",

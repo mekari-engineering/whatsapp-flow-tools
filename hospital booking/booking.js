@@ -61,12 +61,23 @@ const API_ENDPOINTS = {
   SUBMIT_BOOKING: `${process.env.API_BASE_URL}${process.env.API_BOOKING_ENDPOINT}`
 };
 
+/** Global demo switch for local/demo mocking behavior */
+const DEMO_MODE = String(process.env.DEMO_MODE || 'false').toLowerCase() === 'true';
+
 /** Optional demo-only sign-in mock configuration */
 const SIGNIN_MOCK_CONFIG = {
-    enabled: String(process.env.SIGNIN_MOCK_ENABLED || 'false').toLowerCase() === 'true',
     nameOrPhone: process.env.SIGNIN_MOCK_NAME_OR_PHONE || '',
     birthDate: process.env.SIGNIN_MOCK_BIRTH_DATE || '',
     userId: process.env.SIGNIN_MOCK_USER_ID || 'demo-user-001'
+};
+
+/** Optional demo-only booking submit mock configuration */
+const BOOKING_MOCK_CONFIG = {
+    userIdMatch: process.env.BOOKING_MOCK_USER_ID_MATCH || '',
+    bookingCode: process.env.BOOKING_MOCK_CODE || 'DEMO-BOOK-001',
+    bookingQrCode: process.env.BOOKING_MOCK_QR || 'https://example.com/qr/demo-book-001',
+    antrian: process.env.BOOKING_MOCK_QUEUE || 'A-001',
+    ruang: process.env.BOOKING_MOCK_ROOM || 'Ruang Demo 1'
 };
 
 /** Indonesian month names for date formatting */
@@ -637,7 +648,7 @@ async function handleRegistration(registrationData) {
  */
 async function handleSignIn(signInData) {
     if (
-        SIGNIN_MOCK_CONFIG.enabled &&
+        DEMO_MODE &&
         String(signInData.pasien_nama_or_telp || '').trim() === SIGNIN_MOCK_CONFIG.nameOrPhone &&
         String(signInData.pasien_tanggal_lahir || '').trim() === SIGNIN_MOCK_CONFIG.birthDate
     ) {
@@ -666,6 +677,29 @@ async function handleSignIn(signInData) {
  * @returns {Promise<Object>} Booking result
  */
 async function handleBookingSubmission(bookingData) {
+    if (DEMO_MODE) {
+        const incomingUserId = String(bookingData.user_id || '').trim();
+        const requiredUserId = String(BOOKING_MOCK_CONFIG.userIdMatch || '').trim();
+        const userIdMatched = !requiredUserId || incomingUserId === requiredUserId;
+
+        if (userIdMatched) {
+            return {
+                success: true,
+                status: 200,
+                data: {
+                    user_id: bookingData.user_id || SIGNIN_MOCK_CONFIG.userId,
+                    booking_qr_code: BOOKING_MOCK_CONFIG.bookingQrCode,
+                    booking_code: BOOKING_MOCK_CONFIG.bookingCode,
+                    nama: bookingData.nama_lengkap || bookingData.nama || 'Demo Patient',
+                    dokter: bookingData.dokter || 'Demo Doctor',
+                    ruang: BOOKING_MOCK_CONFIG.ruang,
+                    antrian: BOOKING_MOCK_CONFIG.antrian,
+                    mocked: true
+                }
+            };
+        }
+    }
+
     const payload = {
         trigger: 'submit_booking',
         ...bookingData

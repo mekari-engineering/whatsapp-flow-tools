@@ -60,10 +60,15 @@ Create a `.env` file based on `.env.example` and configure the following variabl
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `NODE_ENV` | Environment mode | `development` |
-| `SIGNIN_MOCK_ENABLED` | Enable demo sign-in mock bypass | `false` |
+| `DEMO_MODE` | Single switch to enable all demo mocks | `false` |
 | `SIGNIN_MOCK_NAME_OR_PHONE` | Exact value for `pasien_nama_or_telp` to trigger mock | `demo_user` |
 | `SIGNIN_MOCK_BIRTH_DATE` | Exact value for `pasien_tanggal_lahir` to trigger mock | `1990-01-01` |
 | `SIGNIN_MOCK_USER_ID` | `user_id` returned when mock is triggered | `demo-user-001` |
+| `BOOKING_MOCK_USER_ID_MATCH` | Optional: only mock when booking payload `user_id` equals this value | `demo-user-001` |
+| `BOOKING_MOCK_CODE` | Mock `booking_code` value | `DEMO-BOOK-001` |
+| `BOOKING_MOCK_QR` | Mock `booking_qr_code` value | `https://example.com/qr/demo-book-001` |
+| `BOOKING_MOCK_QUEUE` | Mock queue number (`antrian`) | `A-001` |
+| `BOOKING_MOCK_ROOM` | Mock room (`ruang`) | `Ruang Demo 1` |
 
 ### RSA Key Setup
 
@@ -149,7 +154,7 @@ For demo/testing only, you can bypass the sign-in API when specific credentials 
 Set these in `.env`:
 
 ```bash
-SIGNIN_MOCK_ENABLED=true
+DEMO_MODE=true
 SIGNIN_MOCK_NAME_OR_PHONE=demo_user
 SIGNIN_MOCK_BIRTH_DATE=1990-01-01
 SIGNIN_MOCK_USER_ID=demo-user-001
@@ -157,10 +162,33 @@ SIGNIN_MOCK_USER_ID=demo-user-001
 
 Behavior:
 
-- If both `pasien_nama_or_telp` and `pasien_tanggal_lahir` exactly match the configured values, the flow treats sign-in as successful and returns `user_id` from `SIGNIN_MOCK_USER_ID`.
+- If `DEMO_MODE=true` and both `pasien_nama_or_telp` and `pasien_tanggal_lahir` exactly match the configured values, the flow treats sign-in as successful and returns `user_id` from `SIGNIN_MOCK_USER_ID`.
 - If they do not match, normal API call to `API_SIGNIN_ENDPOINT` is used.
 
-Keep `SIGNIN_MOCK_ENABLED=false` outside demo environments.
+Keep `DEMO_MODE=false` outside demo environments.
+
+### Demo Booking Submit Mock (Skip External Booking API)
+
+For demo/testing only, you can bypass booking submission API when user confirms booking in `KONFIRMASI`.
+
+Set these in `.env`:
+
+```bash
+DEMO_MODE=true
+BOOKING_MOCK_USER_ID_MATCH=demo-user-001
+BOOKING_MOCK_CODE=DEMO-BOOK-001
+BOOKING_MOCK_QR=https://example.com/qr/demo-book-001
+BOOKING_MOCK_QUEUE=A-001
+BOOKING_MOCK_ROOM=Ruang Demo 1
+```
+
+Behavior:
+
+- If `DEMO_MODE=true` and `BOOKING_MOCK_USER_ID_MATCH` is empty, all submit booking requests are mocked.
+- If `BOOKING_MOCK_USER_ID_MATCH` has value, only matching `user_id` is mocked.
+- Non-matching requests still call normal API at `API_BOOKING_ENDPOINT`.
+
+Keep `DEMO_MODE=false` outside demo environments.
 
 ### Flow Structure
 
